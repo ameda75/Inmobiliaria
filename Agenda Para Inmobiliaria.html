@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Cita Inmobiliaria</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        form {
+            width: 400px;
+            margin: auto;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .day {
+            padding: 10px;
+            border: 1px solid #eee;
+            text-align: center;
+            cursor: pointer;
+        }
+        .day.available {
+            background-color: #f0f8ff;
+        }
+        .day.selected {
+            background-color: #add8e6;
+        }
+        .time-slots {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .time-slot {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .time-slot.available {
+            background-color: #f0f8ff;
+        }
+        .time-slot.selected {
+            background-color: #add8e6;
+        }
+        .confirmation {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Agendar Cita Inmobiliaria</h1>
+    <form id="appointmentForm">
+        <label for="name">Nombre:</label>
+        <input type="text" id="name" required>
+
+        <label for="lastName">Apellido:</label>
+        <input type="text" id="lastName" required>
+
+        <label for="age">Edad:</label>
+        <input type="number" id="age" required>
+
+        <label for="property">Propiedad de interés:</label>
+        <input type="text" id="property" required>
+
+        <label for="phone">Teléfono de contacto:</label>
+        <input type="tel" id="phone" required>
+
+        <label for="appointmentType">Tipo de cita:</label>
+        <select id="appointmentType" required>
+            <option value="visit">Visita a propiedad</option>
+            <option value="consultation">Asesoría</option>
+        </select>
+
+        <label for="date">Fecha:</label>
+        <input type="text" id="date" readonly>
+        <div id="calendar" class="calendar"></div>
+
+        <label for="time">Hora:</label>
+        <div id="timeSlots" class="time-slots"></div>
+
+        <button type="button" onclick="confirmAppointment()">Confirmar cita</button>
+    </form>
+
+    <div id="confirmation" class="confirmation" style="display: none;">
+        <h2>Confirmación de cita</h2>
+        <p><strong>Nombre:</strong> <span id="confirmedName"></span></p>
+        <p><strong>Apellido:</strong> <span id="confirmedLastName"></span></p>
+        <p><strong>Edad:</strong> <span id="confirmedAge"></span></p>
+        <p><strong>Propiedad de interés:</strong> <span id="confirmedProperty"></span></p>
+        <p><strong>Teléfono:</strong> <span id="confirmedPhone"></span></p>
+        <p><strong>Tipo de cita:</strong> <span id="confirmedAppointmentType"></span></p>
+        <p><strong>Fecha:</strong> <span id="confirmedDate"></span></p>
+        <p><strong>Hora:</strong> <span id="confirmedTime"></span></p>
+    </div>
+
+    <script>
+        const appointmentForm = document.getElementById('appointmentForm');
+        const calendar = document.getElementById('calendar');
+        const timeSlots = document.getElementById('timeSlots');
+        const confirmation = document.getElementById('confirmation');
+
+        const now = new Date();
+        let selectedDate = null;
+        let selectedTime = null;
+
+        function generateCalendar(month, year) {
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            let calendarHtml = '';
+
+            dayNames.forEach(day => calendarHtml += `<div class="day">${day}</div>`);
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarHtml += '<div class="day"></div>';
+            }
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = new Date(year, month, i);
+                const dayOfWeek = date.getDay();
+                const isAvailable = dayOfWeek >= 1 && dayOfWeek <= 5;
+                const isPast = date < now;
+                const className = `day ${isAvailable && !isPast ? 'available' : ''}`;
+                calendarHtml += `<div class="<span class="math-inline">\{className\}" data\-date\="</span>{year}-<span class="math-inline">\{month \+ 1\}\-</span>{i}">${i}</div>`;
+            }
+
+            calendar.innerHTML = calendarHtml;
+
+            document.querySelectorAll('.day.available').forEach(day => {
+                day.addEventListener('click', () => {
+                    document.querySelectorAll('.day').forEach(d => d.classList.remove('selected'));
+                    day.classList.add('selected');
+                    selectedDate = day.dataset.date;
+                    document.getElementById('date').value = selectedDate;
+                    generateTimeSlots();
+                });
+            });
+        }
+
+        function generateTimeSlots() {
+            if (!selectedDate) return;
+
+            const [year, month, day] = selectedDate.split('-');
+            const selectedDateTime = new Date(year, month - 1, day);
+            const isToday = selectedDateTime.toDateString() === now.toDateString();
+            const startHour = 9;
+            const endHour = 18;
+            const timeSlotsHtml = [];
+
+            for (let hour = startHour; hour < endHour; hour++) {
+                if (hour >= 14 && hour < 15) continue; // Skip lunch break
+
+                const time = `<span class="math-inline">\{hour < 10 ? '0' \: ''\}</span>{hour}:00`;
+                const dateTime = new Date(year, month - 1, day, hour);
+                const isPast = isToday && dateTime <= now;
+                const className = `time-slot ${!isPast ? 'available' : ''}`;
+                timeSlotsHtml.push(`<div class="<span class="math-inline">\{className\}" data\-time\="</span>{time}">${time}</div>`);
+            }
+
+            timeSlots.innerHTML = timeSlotsHtml.join('');
+
+            document.querySelectorAll('.time-slot.available').forEach(slot => {
+                slot.addEventListener('click', () => {
+                    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+                    slot.classList.add('selected');
+                    selectedTime = slot.dataset.time;
+                });
+            });
+        }
+
+        function confirmAppointment() {
+            if (!selectedDate || !selectedTime) {
+                alert('Por favor, selecciona una fecha y hora.');
+                return;
+            }
+
+            document.getElementById('confirmedName').textContent = document.getElementById('name').value;
+            document.getElementById('confirmedLastName').textContent = document.getElementById('lastName').value;
+            document.getElementById('confirmedAge').textContent = document.getElementById('age').value;
+            document.getElementById('confirmedProperty').textContent = document.getElementById('property').value;
+            document.getElementById('confirmedPhone').textContent = document.getElementById('phone').value;
+            document.getElementById('confirmedAppointmentType').textContent = document.
